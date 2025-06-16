@@ -84,56 +84,89 @@ for layer = layers_to_plot
     hold off;
 end
 
-%% Q3 - Discretized C-space Boundary Grid (32x32x32) with Polygon Rasterization
+%% Q3 – Discretized C-space Grid using unioned polyshape
 
+% Parameters
 grid_size = 32;
-x_range = linspace(-5, 35, grid_size);
-y_range = linspace(-5, 35, grid_size);
-theta_values = linspace(0, 2*pi - 2*pi/grid_size, grid_size);
+theta_layers = 32;
+x_min = 0; x_max = 31;
+y_min = 0; y_max = 31;
 
-cspace_grid = zeros(grid_size, grid_size, grid_size);
+% Obstacles
+obstacle_list = {B01, B02, B03, B04, B1, B2, B3, B4, B5, B6, B7};
 
-for k = 1:grid_size
-    % Initialize blank mask for this layer
-    layer_mask = false(grid_size, grid_size);
-    
-    for obs_idx = 1:length(obstacle_list)
-        slice = slices{k, obs_idx};
-        
-        % Clean slice: remove duplicate vertices, ensure closure
-        slice = unique(slice, 'rows', 'stable');
-        if ~isequal(slice(1,:), slice(end,:))
-            slice = [slice; slice(1,:)];
+% Generate C-space slices
+slices = cspace_slices_multiple(A, obstacle_list);
+
+% Initialize grid
+cspace_grid = false(grid_size, grid_size, theta_layers);
+
+% Process each θ layer
+for k = 1:theta_layers
+    fprintf('Processing θ layer %d/%d\n', k, theta_layers);
+    union_poly = polyshape();  % Initialize empty union polygon
+
+    for j = 1:length(obstacle_list)
+        verts = slices{k, j};
+        if size(verts, 1) > 2
+            cleaned = clean_polygon(verts);
+            try
+                p = polyshape(cleaned);
+                union_poly = union(union_poly, p);
+            catch
+                continue
+            end
         end
-        
-        % Scale polygon coordinates to grid indices
-        x_scaled = round( (slice(:,1) - min(x_range)) / (max(x_range)-min(x_range)) * (grid_size-1) ) + 1;
-        y_scaled = round( (slice(:,2) - min(y_range)) / (max(y_range)-min(y_range)) * (grid_size-1) ) + 1;
-        
-        % Clip indices to grid bounds
-        x_scaled = min(max(x_scaled,1), grid_size);
-        y_scaled = min(max(y_scaled,1), grid_size);
-        
-        % Create mask for the polygon boundary (poly2mask)
-        mask = poly2mask(x_scaled, y_scaled, grid_size, grid_size);
-        
-        % Combine mask into layer
-        layer_mask = layer_mask | mask;
     end
-    
-    % Assign combined layer mask to cspace_grid
-    cspace_grid(:,:,k) = layer_mask;
+
+    % Fill grid from merged polygon
+    cspace_grid(:,:,k) = fill_polygon_from_union(union_poly, x_min, x_max, y_min, y_max, grid_size)';
 end
 
-% Plot selected layers
+% Plot selected θ layers
 layers_to_plot = [1, 8, 16, 32];
-[X, Y] = meshgrid(x_range, y_range);
+x_res = (x_max - x_min) / (grid_size - 1);
+y_res = (y_max - y_min) / (grid_size - 1);
+[X, Y] = meshgrid(x_min:x_res:x_max, y_min:y_res:y_max);
+
 for layer = layers_to_plot
-    figure; axis equal; grid on; hold on;
-    title(sprintf('Discretized C-space Boundary Slice θ Layer %d', layer));
-    imagesc(x_range, y_range, cspace_grid(:,:,layer));
-    colormap([1 1 1; 0 0.7 0.7]);
-    caxis([0 1]);
-    set(gca,'YDir','normal');
-    hold off;
+    figure;
+    pcolor(X, Y, double(cspace_grid(:,:,layer)));
+    shading flat; colormap([1 1 1; 0 0 0]);
+    axis equal tight;
+    title(sprintf('Discretized C-obstacle Grid - θ Layer %d', layer));
+    xlabel('X'); ylabel('Y');
+    set(gca, 'YDir', 'normal');
+    colorbar('Ticks', [0.25, 0.75], 'TickLabels', {'Free', 'Obstacle'});
+end
+
+% Save the result
+save('cspace_grid.mat', 'cspace_grid', 'grid_size', 'x_min', 'x_max', 'y_min', 'y_max');
+
+%% Helper: Clean polygon vertices (remove duplicates)
+function cleaned = clean_polygon(verts)
+    diff_v = diff([verts; verts(1,:)], 1, 1);
+    keep = any(abs(diff_v) > 1e-10, 2);
+    cleaned = verts(keep, :);
+end
+
+%% Helper: Fill grid based on polygon intersection
+function grid = fill_polygon_from_union(union_poly, x_min, x_max, y_min, y_max, N)
+    x_res = (x_max - x_min) / (N - 1);
+    y_res = (y_max - y_min) / (N - 1);
+    grid = false(N, N);
+
+    for i = 1:N
+        for j = 1:N
+            x0 = x_min + (i - 1) * x_res;
+            x1 = x0 + x_res;
+            y0 = y_min + (j - 1) * y_res;
+            y1 = y0 + y_res;
+            cell_poly = polyshape([x0 x1 x1 x0], [y0 y0 y1 y1]);
+
+            if overlaps(union_poly, cell_poly)
+                grid(i,j) = true;
+            end
+        end
+    end
 end
