@@ -85,7 +85,7 @@ end
 %% Q3 – Discretized C-space Grid with COLORED BOUNDARIES and BLACK-WHITE MAP
 
 % Parameters
-grid_size = 32;
+grid_size = 64;
 theta_layers = 32;
 x_min = 0; x_max = 31;
 y_min = 0; y_max = 31;
