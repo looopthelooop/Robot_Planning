@@ -1,10 +1,10 @@
-function all_slices = cspace_slices_multiple(A, B_list)
+function all_slices = cspace_slices_multiple(A, B_list, theta_layers)
     % A: Nx2 vertices of robot A
     % B_list: cell array of Mx2 obstacles
-    theta_values = linspace(0, 2*pi - 2*pi/32, 32);
-    all_slices = cell(32, length(B_list)); % Initialize cell array to hold slices
-    
-    for k = 1:32
+    theta_values = linspace(0, 2*pi - 2*pi/theta_layers, theta_layers);
+    all_slices = cell(theta_layers, length(B_list)); % Initialize cell array to hold slices
+
+    for k = 1:theta_layers
         theta = theta_values(k);
         R = [cos(theta), -sin(theta); sin(theta), cos(theta)];
         rotated_A = (R * A')'; % Rotate

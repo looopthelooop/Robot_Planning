@@ -45,7 +45,7 @@ def get_neighbors(node):
     
     neighbors = []
     for dx, dy, dtheta in moves:
-        nx, ny, nt = x + dx, y + dy, (theta + dtheta) % 32
+        nx, ny, nt = x + dx, y + dy, (theta + dtheta) % 128
         neighbors.append((nx, ny, nt, dx, dy, dtheta))
     
     return neighbors
@@ -66,16 +66,15 @@ def a_star(cspace, start, goal):
         visited.add(current)
 
         # Goal check - allow orientation tolerance
-        if (current[0] == goal[0] and current[1] == goal[1] and 
-            abs(current[2] - goal[2]) <= 1):
-            
+        if (current[0] == goal[0] and current[1] == goal[1] and current[2] == goal[2]):
+
             # Reconstruct path
             path = [current]
             while current in came_from:
                 current = came_from[current]
                 path.append(current)
-            
-            return path[::-1], visited
+            path.reverse()
+            return path, visited
 
         # Explore neighbors
         for nx, ny, nt, dx, dy, dtheta in get_neighbors(current):
@@ -101,12 +100,12 @@ def a_star(cspace, start, goal):
 
 def grid_to_world(grid_coord):
     """Convert grid index to world coordinate"""
-    return grid_coord * 31.0 / 63.0
+    return grid_coord * 32.0 / 64.0
 
 
 def world_to_grid(world_coord):
     """Convert world coordinate to grid index"""
-    return int(round(world_coord * 63.0 / 31.0))
+    return int(round(world_coord * 64.0 / 32.0))
 
 
 def draw_robot(ax, x_grid, y_grid, theta, color='blue', alpha=1.0):
@@ -117,7 +116,7 @@ def draw_robot(ax, x_grid, y_grid, theta, color='blue', alpha=1.0):
     
     # Robot size and angle
     robot_width, robot_height = 8.0, 1.0
-    angle_deg = theta * 360.0 / 32.0
+    angle_deg = theta * 360.0 / 128.0
     
     # Draw robot body
     rect = Rectangle((world_x, world_y), robot_width, robot_height, 
@@ -137,19 +136,19 @@ def create_apartment_obstacles():
     """Create the apartment layout - COORDINATES VERIFIED"""
     obstacles = [
         # Boundary walls
-        [[0, 30], [31, 30], [31, 31], [0, 31]],  # Top wall
-        [[0, 1], [1, 1], [1, 30], [0, 30]],      # Left wall  
-        [[0, 0], [31, 0], [31, 1], [0, 1]],      # Bottom wall
-        [[30, 1], [31, 1], [31, 30], [30, 30]],  # Right wall
+        [[0, 29], [32, 29], [32, 32], [0, 32]],  # Top wall
+        [[0, 0], [1, 0], [1, 32], [0, 32]],      # Left wall
+        [[0, 0], [32, 0], [32, 1], [0, 1]],      # Bottom wall
+        [[31, 1], [32, 1], [32, 32], [31, 32]],  # Right wall
         
         # Interior obstacles
         [[0, 18], [10, 18], [10, 19], [0, 19]],   # B1
-        [[17, 17], [18, 17], [18, 30], [17, 30]], # B2
-        [[24, 18], [30, 18], [30, 19], [24, 19]], # B3
+        [[17, 17], [18, 17], [18, 29], [17, 29]], # B2
+        [[25, 18], [32, 18], [32, 19], [25, 19]], # B3
         [[0, 14], [19, 14], [19, 15], [0, 15]],   # B4
-        [[23, 13], [31, 13], [31, 15], [23, 15]], # B5
+        [[24, 13], [32, 13], [32, 15], [24, 15]], # B5
         [[10, 19], [12, 19], [12, 20], [10, 20]], # B6
-        [[22, 19], [24, 19], [24, 20], [22, 20]], # B7
+        [[23, 19], [25, 19], [25, 20], [23, 20]], # B7
     ]
     
     return obstacles
@@ -202,10 +201,10 @@ def visualize_path(cspace, path, visited):
     
     # Set up plot
     ax.set_title('Robot Path Planning', fontsize=14, fontweight='bold')
-    ax.set_xlabel('X (world units)')
-    ax.set_ylabel('Y (world units)')
-    ax.set_xlim(0, 31)
-    ax.set_ylim(0, 31)
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_xlim(0, 32)
+    ax.set_ylim(0, 32)
     ax.set_aspect('equal')
     ax.grid(True, alpha=0.3)
     if path:
@@ -219,16 +218,9 @@ def main():
     """Main function - load data, plan path, visualize results"""
     
     # Load C-space
-    try:
-        cspace = load_cspace('cspace_boundary_grid_combined.mat')
-        print(f"Loaded C-space: {cspace.shape}")
-    except FileNotFoundError:
-        print("C-space file not found. Creating test environment...")
-        cspace = np.zeros((64, 64, 32))
-        # Add test obstacles
-        cspace[20:40, 20:25, :] = 1  # Vertical wall
-        cspace[10:15, 30:50, :] = 1  # Horizontal wall
-    
+    cspace = load_cspace('C:\Repos\Robot_Planning\cspace_boundary_grid_combined.mat')
+    print(f"Loaded C-space: {cspace.shape}")
+
     # Define start and goal positions
     start_world = (4, 24, 0)   # World coordinates
     goal_world = (4, 8, 0)

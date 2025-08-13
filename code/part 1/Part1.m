@@ -5,18 +5,18 @@ import myfunctions.*
 
 A = [0 0; 8 0; 8 1; 0 1];
 
-B01 = [0 30; 31 30; 31 31; 0 31];
-B02 = [0 1; 1 1; 1 30; 0 30];
-B03 = [0 0; 31 0; 31 1; 0 1];
-B04 = [30 1; 31 1; 31 30; 30 30];
+B01 = [0 29; 32 29; 32 32; 0 32];
+B02 = [0 0; 1 0; 1 32; 0 32];
+B03 = [0 0; 32 0; 32 1; 0 1];
+B04 = [31 0; 32 0; 32 32; 31 32];
 
 B1 = [0 18; 10 18; 10 19; 0 19];
-B2 = [17 17; 18 17; 18 30; 17 30];
-B3 = [24 18; 30 18; 30 19; 24 19];
+B2 = [17 17; 18 17; 18 29; 17 29];
+B3 = [25 18; 32 18; 32 19; 25 19];
 B4 = [0 14; 19 14; 19 15; 0 15];
-B5 = [23 13; 31 13; 31 15; 23 15];
+B5 = [24 13; 32 13; 32 15; 24 15];
 B6 = [10 19; 12 19; 12 20; 10 20];
-B7 = [22 19; 24 19; 24 20; 22 20];
+B7 = [23 19; 25 19; 25 20; 23 20];
 
 B_names = {'B01', 'B02', 'B03', 'B04', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'};
 B_list = {B01, B02, B03, B04, B1, B2, B3, B4, B5, B6, B7};
@@ -39,7 +39,7 @@ hold off;
 obstacle_list = {B01};
 obstacle_name = {'B01'};
 
-slices = cspace_slices_multiple(A, obstacle_list);
+slices = cspace_slices_multiple(A, obstacle_list, 128);
 
 % Define list of layers to plot
 layers_to_plot = [1, 8, 16, 32]; % Change as needed
@@ -63,7 +63,7 @@ end
 obstacle_list = {B01, B02, B03, B04, B1, B2, B3, B4, B5, B6, B7};
 obstacle_name = {'B01', 'B02', 'B03', 'B04', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'};
 
-slices = cspace_slices_multiple(A, obstacle_list);
+slices = cspace_slices_multiple(A, obstacle_list, 128);
 
 % Define list of layers to plot
 layers_to_plot = [1, 8, 16, 32]; % Change as needed
@@ -85,16 +85,16 @@ end
 %% Q3 – Discretized C-space Grid with COLORED BOUNDARIES and BLACK-WHITE MAP
 
 % Parameters
-grid_size = 64;
-theta_layers = 32;
-x_min = 0; x_max = 31;
-y_min = 0; y_max = 31;
+grid_size = 65;
+theta_layers = 128;
+x_min = 0; x_max = 32;
+y_min = 0; y_max = 32;
 
 % Obstacles
 obstacle_list = {B01, B02, B03, B04, B1, B2, B3, B4, B5, B6, B7};
 
 % Generate C-space slices
-slices = cspace_slices_multiple(A, obstacle_list);
+slices = cspace_slices_multiple(A, obstacle_list, 128);
 
 % Initialize grid (1: obstacle index, 0: free)
 cspace_grid = zeros(grid_size, grid_size, theta_layers);
@@ -199,7 +199,7 @@ for layer = layers_to_plot
     end
 
     xlim([x_min x_max]); ylim([y_min y_max]);
-    xticks(0:2:31); yticks(0:2:31);
+    xticks(0:2:32); yticks(0:2:32);
 end
 
 % Save result
