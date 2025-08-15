@@ -214,11 +214,51 @@ def visualize_path(cspace, path, visited):
     plt.show()
 
 
+def visualize_nodes_explored(cspace, visited, start, goal):
+    """NEW FUNCTION: Visualize only the nodes explored by A*"""
+    fig, ax = plt.subplots(figsize=(12, 10))
+    
+    # Draw apartment obstacles
+    for obstacle in create_apartment_obstacles():
+        polygon = Polygon(obstacle, facecolor='gray', edgecolor='black', alpha=0.8)
+        ax.add_patch(polygon)
+    
+    # Project visited nodes to 2D (ignore theta dimension)
+    visited_2d = [(grid_to_world(x), grid_to_world(y)) for x, y, theta in visited]
+    
+    if visited_2d:
+        # Plot visited nodes
+        x_visited, y_visited = zip(*visited_2d)
+        ax.scatter(x_visited, y_visited, c='darkblue', s=2, alpha=0.8, 
+                  label=f'Nodes Explored ({len(visited):,})')
+        
+        # Mark start and goal
+        start_world = (grid_to_world(start[0]), grid_to_world(start[1]))
+        goal_world = (grid_to_world(goal[0]), grid_to_world(goal[1]))
+        ax.plot(start_world[0], start_world[1], 'go', markersize=12, 
+               markeredgecolor='darkgreen', markeredgewidth=2, label='Start')
+        ax.plot(goal_world[0], goal_world[1], 'ro', markersize=12, 
+               markeredgecolor='darkred', markeredgewidth=2, label='Goal')
+    
+    # Set up plot
+    ax.set_title('A* Nodes Explored', fontsize=14, fontweight='bold')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_xlim(0, 32)
+    ax.set_ylim(0, 32)
+    ax.set_aspect('equal')
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    
+    plt.tight_layout()
+    plt.show()
+
+
 def main():
     """Main function - load data, plan path, visualize results"""
     
     # Load C-space
-    cspace = load_cspace('C:\Repos\Robot_Planning\cspace_boundary_grid_combined.mat')
+    cspace = load_cspace('C:\\Repos\\Robot_Planning\\cspace_boundary_grid_combined.mat')
     print(f"Loaded C-space: {cspace.shape}")
 
     # Define start and goal positions
@@ -250,9 +290,11 @@ def main():
     if path:
         print(f"SUCCESS! Found path with {len(path)} steps")
         visualize_path(cspace, path, visited)
+        visualize_nodes_explored(cspace, visited, start, goal)
     else:
         print("FAILED! No path found")
         visualize_path(cspace, None, visited)
+        visualize_nodes_explored(cspace, visited, start, goal)
 
 
 if __name__ == '__main__':
