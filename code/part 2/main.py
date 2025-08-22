@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 from scipy.io import loadmat
 import heapq
 import math
-import time
 from matplotlib.patches import Rectangle, Polygon
 
 
@@ -214,7 +213,7 @@ def visualize_path(cspace, path, visited):
     plt.show()
 
 
-def visualize_nodes_explored(cspace, visited, start, goal):
+def visualize_nodes_explored(visited, start, goal):
     """NEW FUNCTION: Visualize only the nodes explored by A*"""
     fig, ax = plt.subplots(figsize=(12, 10))
     
@@ -254,8 +253,139 @@ def visualize_nodes_explored(cspace, visited, start, goal):
     plt.show()
 
 
+# NEW FUNCTIONS FOR ONLINE A* NAVIGATION
+
+
+def sense_obstacles(true_cspace, known_cspace, robot_pos, sensor_range):
+    """Simulate robot's obstacle detection sensor"""
+    x, y, _ = robot_pos
+    newly_discovered = 0
+    
+    for dx in range(-sensor_range, sensor_range + 1):
+        for dy in range(-sensor_range, sensor_range + 1):
+            if dx*dx + dy*dy > sensor_range*sensor_range:
+                continue
+                
+            nx, ny = x + dx, y + dy
+            if not (0 <= nx < true_cspace.shape[0] and 0 <= ny < true_cspace.shape[1]):
+                continue
+            
+            for nt in range(true_cspace.shape[2]):
+                if true_cspace[nx, ny, nt] == 1 and known_cspace[nx, ny, nt] == 0:
+                    known_cspace[nx, ny, nt] = 1
+                    newly_discovered += 1
+    
+    return
+
+
+def calculate_path_length(path):
+    """Calculate total Euclidean distance of a path"""
+    if not path or len(path) < 2:
+        return 0.0
+    
+    total_length = 0.0
+    for i in range(len(path) - 1):
+        x1, y1, _ = path[i]
+        x2, y2, _ = path[i + 1]
+        world_x1, world_y1 = grid_to_world(x1), grid_to_world(y1)
+        world_x2, world_y2 = grid_to_world(x2), grid_to_world(y2)
+        total_length += math.sqrt((world_x2 - world_x1)**2 + (world_y2 - world_y1)**2)
+    
+    return total_length
+
+
+def online_a_star_navigation(true_cspace, start, goal, sensor_range=3):
+    """Online A* navigation where robot discovers obstacles as it moves"""
+    
+    # Initialize robot's known map (only boundaries)
+    known_cspace = np.zeros_like(true_cspace)
+    known_cspace[0, :, :] = 1    # Boundaries
+    known_cspace[-1, :, :] = 1   
+    known_cspace[:, 0, :] = 1    
+    known_cspace[:, -1, :] = 1   
+    
+    current_pos = start
+    online_path = [current_pos]
+    
+    print(f"Starting online navigation from {start} to {goal}")
+    
+    for _ in range(500):  # Safety limit
+        # Sense obstacles
+        sense_obstacles(true_cspace, known_cspace, current_pos, sensor_range)
+        
+        # Check if goal reached
+        if current_pos == goal:
+            print("Goal reached!")
+            break
+        
+        # Plan path with current knowledge
+        local_path, _ = a_star(known_cspace, current_pos, goal)
+
+        if not local_path or len(local_path) < 2:
+            print("No path found!")
+            break
+        
+        # Move to next position
+        next_pos = local_path[1]
+        
+        # Check for collision (discovery during movement)
+        if true_cspace[next_pos[0], next_pos[1], next_pos[2]] == 1:
+            known_cspace[next_pos[0], next_pos[1], next_pos[2]] = 1
+            continue
+        
+        current_pos = next_pos
+        online_path.append(current_pos)
+    
+    # Calculate offline optimal path for comparison
+    offline_path, _ = a_star(true_cspace, start, goal)
+    
+    return {
+        'online_path': online_path,
+        'offline_path': offline_path,
+        'online_length': calculate_path_length(online_path),
+        'offline_length': calculate_path_length(offline_path) if offline_path else float('inf'),
+    }
+
+
+def visualize_online_vs_offline(results):
+    """Visualize comparison between online and offline paths"""
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    
+    # Draw obstacles
+    obstacles = create_apartment_obstacles()
+    for ax in [ax1, ax2]:
+        for obstacle in obstacles:
+            polygon = Polygon(obstacle, facecolor='gray', edgecolor='black', alpha=0.8)
+            ax.add_patch(polygon)
+    
+    # Plot paths
+    for ax, path, title, color in zip([ax1, ax2], 
+                                     [results['online_path'], results['offline_path']], 
+                                     ['Online A*', 'Offline A*'], 
+                                     ['blue', 'red']):
+        if path:
+            path_x = [grid_to_world(x) for x, y, theta in path]
+            path_y = [grid_to_world(y) for x, y, theta in path]
+            ax.plot(path_x, path_y, color=color, linewidth=3, alpha=0.8)
+            ax.plot(path_x[0], path_y[0], 'go', markersize=10, label='Start')
+            ax.plot(path_x[-1], path_y[-1], 'ro', markersize=10, label='Goal')
+        
+        ax.set_title(title, fontsize=14)
+        ax.set_xlim(0, 32)
+        ax.set_ylim(0, 32)
+        ax.set_aspect('equal')
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+
+    stats = f"Online: {results['online_length']:.1f} | Offline: {results['offline_length']:.1f}"
+    
+    fig.suptitle(stats, fontsize=12)
+    plt.tight_layout()
+    plt.show()
+
+
 def main():
-    """Main function - load data, plan path, visualize results"""
+    """Main function - load data, plan path, visualize results, and compare online vs offline navigation"""
     
     # Load C-space
     cspace = load_cspace('C:\\Repos\\Robot_Planning\\cspace_boundary_grid_combined.mat')
@@ -282,7 +412,6 @@ def main():
         print("Error: Start or goal position blocked!")
         return
     
-    # Find path
     print("Running A* pathfinding...")
     path, visited = a_star(cspace, start, goal)
     
@@ -290,11 +419,20 @@ def main():
     if path:
         print(f"SUCCESS! Found path with {len(path)} steps")
         visualize_path(cspace, path, visited)
-        visualize_nodes_explored(cspace, visited, start, goal)
+        visualize_nodes_explored(visited, start, goal)
     else:
         print("FAILED! No path found")
         visualize_path(cspace, None, visited)
-        visualize_nodes_explored(cspace, visited, start, goal)
+        visualize_nodes_explored(visited, start, goal)
+    
+    results = online_a_star_navigation(cspace, start, goal, sensor_range=3)
+    
+    # Display comparison results
+    print(f"\nOnline path length: {results['online_length']:.2f}")
+    print(f"Offline optimal length: {results['offline_length']:.2f}")
+
+    # Visualize comparison results
+    visualize_online_vs_offline(results)
 
 
 if __name__ == '__main__':
